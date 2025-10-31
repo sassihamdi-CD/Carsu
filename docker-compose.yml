@@ -1,0 +1,40 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: carsu_db
+    environment:
+      POSTGRES_USER: carsu
+      POSTGRES_PASSWORD: carsu
+      POSTGRES_DB: carsu
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carsu -d carsu"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: carsu_api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://carsu:carsu@db:5432/carsu?schema=public
+      JWT_SECRET: dev_jwt_secret_change_me
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    command: ["pnpm", "start:dev"]
+    working_dir: /usr/src/app
+    volumes:
+      - ./apps/api:/usr/src/app
+      - /usr/src/app/node_modules
+volumes:
+  db_data:
