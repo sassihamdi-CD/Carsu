@@ -1,7 +1,10 @@
 /**
- * Purpose: Minimal root controller for sanity checks and starter routing.
- * Usage: Exposes GET / returning a static greeting via AppService.
- * Why: Scaffold only; will be replaced/augmented by real feature modules.
+ * Purpose: Default Nest scaffold endpoint used as a simple sanity check.
+ * Usage: Exposes GET / to confirm the app boots, DI works, and routing is wired.
+ * Why: Helpful during early development to verify the stack end-to-end.
+ * Notes: In a production-style API we do not expose "Hello World". We either
+ *  - replace this with a minimal root status (service name, version, links to /docs and /health), or
+ *  - remove the controller entirely and rely on /health and /docs.
  */
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
