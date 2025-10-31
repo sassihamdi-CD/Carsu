@@ -32,7 +32,7 @@ jobs:
       - name: Generate Prisma Client
         run: |
           cd apps/api
-          pnpm exec prisma generate
+          pnpm exec prisma generate --schema=./prisma/schema.prisma
 
       - name: Lint API
         run: |
