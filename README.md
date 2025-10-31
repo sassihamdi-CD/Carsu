@@ -451,6 +451,8 @@ Carsu/
 │       └── package.json
 ├── scripts/
 │   └── dev.sh                  # Development setup script
+├── setup.sh                    # One-command automated setup script
+├── Makefile                    # Convenient Make commands
 ├── docker-compose.yml          # Docker orchestration
 ├── pnpm-workspace.yaml         # pnpm monorepo config
 ├── README.md                   # This file
@@ -460,11 +462,77 @@ Carsu/
 ## How to Run the App
 
 ### Prerequisites
-- Docker & Docker Compose
+- Docker (with Docker Compose v2 or v1 - automatically detected)
 - Node.js 20+ (optional, if running locally without Docker)
 - pnpm 9+ (optional, if running locally)
 
-### Option 1: Docker Compose (Recommended - Easiest Setup)
+### Quick Start - One Command Setup (Recommended)
+
+The easiest way to get started is using our automated setup script or Makefile. Both detect Docker Compose version automatically and handle everything for you.
+
+#### Option A: Using the Setup Script
+```bash
+git clone https://github.com/sassihamdi-CD/Carsu.git
+cd Carsu
+./setup.sh
+```
+
+#### Option B: Using Make (Even Simpler)
+```bash
+git clone https://github.com/sassihamdi-CD/Carsu.git
+cd Carsu
+make setup
+```
+
+**That's it!** The script will:
+- ✅ Clean up any existing containers
+- ✅ Build and start all services (database, API, frontend)
+- ✅ Wait for database to be healthy
+- ✅ Run Prisma migrations automatically
+- ✅ Verify API and frontend are ready
+- ✅ Display access URLs and useful commands
+
+### Access the Application
+
+Once setup completes, access:
+- **Frontend**: http://localhost:5174
+- **API**: http://localhost:4000
+- **API Documentation (Swagger)**: http://localhost:4000/docs
+- **Health Check**: http://localhost:4000/v1/health
+
+### Useful Commands
+
+Using **Make** (recommended):
+```bash
+make help      # Show all available commands
+make setup     # Complete setup (build, start, migrate, verify)
+make start     # Start all services
+make stop      # Stop all services
+make restart   # Restart all services
+make logs      # View all logs (follow mode)
+make api-logs  # View API logs only
+make web-logs  # View frontend logs only
+make db-logs   # View database logs only
+make clean     # Stop and remove everything (containers, volumes)
+make test      # Run API tests
+make status    # Show service status
+```
+
+Or using **Docker Compose directly**:
+```bash
+# View logs
+docker compose logs -f    # or: docker-compose logs -f (v1)
+
+# Stop services
+docker compose down       # or: docker-compose down (v1)
+
+# Restart services
+docker compose restart    # or: docker-compose restart (v1)
+```
+
+### Option 2: Manual Setup (Advanced)
+
+If you prefer manual control:
 
 1. **Clone the repository:**
 ```bash
@@ -472,27 +540,18 @@ git clone https://github.com/sassihamdi-CD/Carsu.git
 cd Carsu
 ```
 
-2. **Start all services (database, API, frontend):**
+2. **Start all services:**
 ```bash
-docker-compose up -d --build
-```
-
-Or use the convenience script:
-```bash
-chmod +x scripts/dev.sh
-./scripts/dev.sh
+# Detects docker compose v2 or docker-compose v1 automatically
+docker compose up -d --build
+# Or: docker-compose up -d --build
 ```
 
 3. **Run database migrations:**
 ```bash
-# Enter the API container
-docker exec -it carsu_api sh
-
-# Generate Prisma client and run migrations
-cd /app/apps/api
-npx prisma generate
-npx prisma migrate deploy
-exit
+# Wait for database to be ready, then:
+docker compose exec api sh -c "cd /app/apps/api && npx prisma migrate deploy"
+# Or: docker-compose exec api sh -c "cd /app/apps/api && npx prisma migrate deploy"
 ```
 
 4. **Access the application:**
@@ -503,17 +562,17 @@ exit
 
 5. **View logs:**
 ```bash
-docker-compose logs -f
+docker compose logs -f    # or: docker-compose logs -f
 ```
 
 6. **Stop services:**
 ```bash
-docker-compose down
+docker compose down    # or: docker-compose down
 # To remove volumes (database data):
-docker-compose down -v
+docker compose down -v    # or: docker-compose down -v
 ```
 
-### Option 2: Local Development (Without Docker)
+### Option 3: Local Development (Without Docker)
 
 1. **Install dependencies:**
 ```bash
