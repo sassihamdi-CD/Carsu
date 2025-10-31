@@ -32,7 +32,7 @@ jobs:
       - name: Generate Prisma Client
         run: |
           cd apps/api
-          pnpm run prisma:generate
+          pnpm exec prisma generate
 
       - name: Lint API
         run: |
@@ -95,9 +95,9 @@ jobs:
       - name: Generate Prisma Client
         run: |
           cd apps/api
-          pnpm run prisma:generate
+          pnpm exec prisma generate
 
-      - name: Run database migrations
+      vou - name: Run database migrations
         run: |
           cd apps/api
           pnpm prisma migrate deploy
