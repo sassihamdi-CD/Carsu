@@ -8,12 +8,14 @@ import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { TenantsService } from '../../src/modules/tenants/tenants.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { RealtimeService } from '../../src/modules/realtime/realtime.service';
 
 describe('BoardsService', () => {
   let service: BoardsService;
   let prisma: any;
   let tenants: any;
   let cache: any;
+  let realtime: any;
 
   beforeEach(async () => {
     prisma = {
@@ -27,6 +29,9 @@ describe('BoardsService', () => {
     };
     tenants = { isUserMemberOfTenant: jest.fn().mockResolvedValue(true) };
     cache = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
+    realtime = {
+      emitToTenant: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
@@ -34,6 +39,7 @@ describe('BoardsService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: TenantsService, useValue: tenants },
         { provide: CACHE_MANAGER, useValue: cache },
+        { provide: RealtimeService, useValue: realtime },
       ],
     }).compile();
 

@@ -3,6 +3,10 @@
  * Usage: Used by AuthController for signup and login; accessible to other services for current-user checks.
  * Why: Single-responsibility layer for auth; isolates credential and token logic from web/infra concerns.
  * Notes: Handles password hashing, user lookup, and token generation.
+ * 
+ * Logging Strategy:
+ * - log(): Authentication events (signup success, login success) for security audit trail
+ * - Error logging: Prisma unique constraint violations are mapped to ConflictException (no extra logging needed)
  */
 import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';

@@ -11,9 +11,15 @@ import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { VersioningType } from '@nestjs/common';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  // Configure Socket.IO adapter for WebSocket support
+  app.useWebSocketAdapter(new IoAdapter(app));
+  
   app.enableShutdownHooks();
 
   app.use(helmet());
@@ -42,6 +48,10 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
+
+  // Enable simple URI versioning (e.g., /v1/...)
+  app.enableVersioning({ type: VersioningType.URI });
+  app.setGlobalPrefix('v1');
 
   await app.listen(port);
 }

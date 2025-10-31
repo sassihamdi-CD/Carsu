@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint API
+        run: |
+          cd apps/api
+          pnpm run lint
+
+      - name: Type check API
+        run: |
+          cd apps/api
+          pnpm run build
+
+      - name: Type check Web
+        run: |
+          cd apps/web
+          pnpm run build
+
+  test-api:
+    name: Test API
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: carsu
+          POSTGRES_PASSWORD: carsu
+          POSTGRES_DB: carsu_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://carsu:carsu@localhost:5432/carsu_test?schema=public
+      JWT_SECRET: test_jwt_secret_for_ci
+      PORT: 3000
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: |
+          cd apps/api
+          pnpm run prisma:generate
+
+      - name: Run database migrations
+        run: |
+          cd apps/api
+          pnpm prisma migrate deploy
+
+      - name: Run unit tests
+        run: |
+          cd apps/api
+          pnpm run test
+
+      - name: Run tests with coverage
+        run: |
+          cd apps/api
+          pnpm run test:cov
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          directory: apps/api/coverage
+          flags: api
+          name: api-coverage
+          fail_ci_if_error: false
+

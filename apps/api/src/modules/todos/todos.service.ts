@@ -6,6 +6,11 @@
  * Notes:
  *  - All queries are tenant-scoped, and board-scoped where applicable (IDOR resistant).
  *  - First-page caching only; cache failures are tolerated to avoid surfacing infra issues.
+ * 
+ * Logging Strategy:
+ * - log(): Important business events (todo created, updated, deleted) for audit trail
+ * - debug(): Realtime event emissions (verbose, filtered in production via LOG_LEVEL)
+ * - error(): Critical failures (realtime emission errors, cache failures are silently handled)
  */
 import { Inject, Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -13,6 +18,7 @@ import { TenantsService } from '../tenants/tenants.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { TodoStatusDto } from './dto/todo.dto';
+import { RealtimeService } from '../realtime/realtime.service';
 
 @Injectable()
 export class TodosService {
@@ -20,6 +26,7 @@ export class TodosService {
     private readonly prisma: PrismaService,
     private readonly tenantsService: TenantsService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly realtime: RealtimeService,
   ) {}
 
   private readonly logger = new Logger(TodosService.name);
@@ -88,6 +95,13 @@ export class TodosService {
     // Invalidate first page cache quietly
     try { await this.cache.del(`tenant:${tenantId}:board:${boardId}:todos:first:20`); } catch {}
     this.logger.log(`todo_created tenant=${tenantId} board=${boardId} todo=${todo.id}`);
+    // Include boardId in payload so frontend can filter if needed (though room membership should handle this)
+    try {
+      this.realtime.emitToBoard(tenantId, boardId, 'todo.created', { ...todo, boardId });
+      this.logger.debug(`Emitted todo.created event for tenant ${tenantId} board ${boardId}`);
+    } catch (err) {
+      this.logger.error(`Failed to emit todo.created event:`, err);
+    }
     return todo;
   }
 
@@ -117,6 +131,13 @@ export class TodosService {
     // Invalidate first page cache quietly
     try { await this.cache.del(`tenant:${tenantId}:board:${exists.boardId}:todos:first:20`); } catch {}
     this.logger.log(`todo_updated tenant=${tenantId} todo=${todoId}`);
+    // Emit realtime event for todo update (silently handle failures)
+    try {
+      this.realtime.emitToBoard(tenantId, exists.boardId, 'todo.updated', { id: todoId, boardId: exists.boardId, ...patch });
+      this.logger.debug(`Emitted todo.updated event for tenant ${tenantId} board ${exists.boardId}`);
+    } catch (err) {
+      this.logger.error(`Failed to emit todo.updated event:`, err);
+    }
     return this.getTodo(userId, tenantId, todoId);
   }
 
@@ -131,6 +152,13 @@ export class TodosService {
     // Invalidate first page cache quietly
     try { await this.cache.del(`tenant:${tenantId}:board:${exists.boardId}:todos:first:20`); } catch {}
     this.logger.log(`todo_deleted tenant=${tenantId} todo=${todoId}`);
+    // Emit realtime event for todo deletion (silently handle failures)
+    try {
+      this.realtime.emitToBoard(tenantId, exists.boardId, 'todo.deleted', { id: todoId, boardId: exists.boardId });
+      this.logger.debug(`Emitted todo.deleted event for tenant ${tenantId} board ${exists.boardId}`);
+    } catch (err) {
+      this.logger.error(`Failed to emit todo.deleted event:`, err);
+    }
     return { deleted: true };
   }
 }

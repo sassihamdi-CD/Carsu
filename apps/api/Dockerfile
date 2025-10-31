@@ -1,24 +1,19 @@
-# ---- base ----
-FROM node:20-alpine AS base
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
-RUN corepack enable && corepack prepare pnpm@10.16.1 --activate
-WORKDIR /usr/src/app
+# Simple Development Dockerfile - just run the dev server
+FROM node:20-slim
 
-# ---- deps ----
-FROM base AS deps
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+# Install OpenSSL for Prisma and procps for NestJS watch mode
+RUN apt-get update && apt-get install -y openssl libssl-dev ca-certificates procps && rm -rf /var/lib/apt/lists/*
 
-# ---- build ----
-FROM base AS build
-COPY --from=deps /usr/src/app/node_modules ./node_modules
+WORKDIR /app/apps/api
+
+# Copy everything
 COPY . .
-RUN pnpm build
 
-# ---- dev/runtime ----
-FROM base AS dev
-COPY --from=deps /usr/src/app/node_modules ./node_modules
-COPY . .
+# Install dependencies (including dev dependencies)
+RUN npm install --legacy-peer-deps
+
+# Expose port
 EXPOSE 3000
-CMD ["pnpm", "start:dev"]
+
+# Run dev server directly - that's it!
+CMD ["npm", "run", "start:dev"]

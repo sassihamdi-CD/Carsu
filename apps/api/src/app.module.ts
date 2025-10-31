@@ -14,16 +14,24 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
 import { TenantsModule } from './modules/tenants/tenants.module';
+import { BoardsModule } from './modules/boards/boards.module';
+import { TodosModule } from './modules/todos/todos.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    CacheModule.register({ isGlobal: true }),
     ThrottlerModule.forRoot({
       throttlers: [{ ttl: 60_000, limit: 120 }],
     }),
     HealthModule,
     AuthModule,
     TenantsModule,
+    BoardsModule,
+    TodosModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [

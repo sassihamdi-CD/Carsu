@@ -12,6 +12,7 @@ import { TenantsService } from '../../src/modules/tenants/tenants.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { TodoStatusDto } from '../../src/modules/todos/dto/todo.dto';
+import { RealtimeService } from '../../src/modules/realtime/realtime.service';
 
 describe('TodosService', () => {
   let service: TodosService;
@@ -41,6 +42,7 @@ describe('TodosService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: TenantsService, useValue: tenants },
         { provide: CACHE_MANAGER, useValue: cache },
+        { provide: RealtimeService, useValue: { emitToBoard: jest.fn() } },
       ],
     }).compile();
 

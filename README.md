@@ -16,12 +16,56 @@ A secure, multi‑tenant, real‑time todo application (Trello‑style boards) b
 - Jest + ts‑jest + Supertest
 - pnpm, ESLint/Prettier, @nestjs/config
 
-## High‑Level Architecture
-- Layered and modular NestJS app: feature modules for `auth`, `tenants`, `boards`, `todos`, `realtime`
-- Guards for auth and tenant membership; DTOs for request validation
-- Services encapsulate business rules; repositories use Prisma with enforced tenant scoping
-- Global validation pipe and exception filter for consistent responses
-- Stateless JWT auth; active tenant supplied via header and verified on every request
+## Overview of Architecture and Design Decisions
+
+### High-Level Architecture
+
+The application follows a **layered, modular architecture** built with NestJS. See the "Project Structure" section above for visual representation of the codebase organization.
+
+### Key Design Decisions
+
+1. **Multi-Tenancy Strategy: Row-Level Security**
+   - **Why**: Chosen over schema-based multi-tenancy for simplicity and easier operations (single schema, single connection pool)
+   - **Implementation**: Every tenant-scoped table (Board, Todo) includes `tenant_id` column
+   - **Enforcement**: All service layer queries explicitly filter by `tenant_id`; TenantGuard verifies membership on every request
+   - **Future**: Can be enhanced with PostgreSQL Row Level Security (RLS) for defense-in-depth
+
+2. **Authentication: Stateless JWT**
+   - **Why**: Stateless authentication simplifies horizontal scaling and removes the need for session storage
+   - **Implementation**: JWT tokens contain user ID (`sub` claim); tokens verified on every request via Passport JWT strategy
+   - **Security**: Tokens are short-lived (configurable expiry); passwords hashed with bcrypt
+
+3. **Tenant Context: Header-Based**
+   - **Why**: Allows users to belong to multiple tenants and switch context without re-authentication
+   - **Implementation**: `x-tenant-id` header specifies active tenant; verified by TenantGuard on every request
+   - **Alternative Considered**: Subdomain-based routing (more complex, requires DNS configuration)
+
+4. **Real-Time: Socket.IO Rooms**
+   - **Why**: Room-based architecture allows efficient event distribution (only interested clients receive events)
+   - **Implementation**: Room naming `${tenantId}:${boardId}` ensures tenant isolation by design
+   - **Scalability**: Can add Redis adapter for multi-instance deployments (not required for MVP)
+
+5. **API Design: RESTful with Versioning**
+   - **Why**: REST is familiar, well-understood, and easy to document; versioning (`/v1/`) allows future breaking changes
+   - **Implementation**: Resource-based URLs (`/tenants/:tenantId/boards/:boardId/todos`); standard HTTP methods
+   - **Documentation**: Swagger/OpenAPI at `/docs` endpoint
+
+6. **Validation: DTOs with class-validator**
+   - **Why**: Type-safe, declarative validation at the API boundary prevents invalid data from reaching business logic
+   - **Implementation**: All request DTOs use decorators (`@IsString()`, `@MinLength()`, etc.); ValidationPipe enforces globally
+
+7. **Error Handling: Centralized Exception Filter**
+   - **Why**: Consistent error responses improve client experience and simplify error handling
+   - **Implementation**: HttpExceptionFilter catches all exceptions, transforms to consistent JSON format, hides internal details
+
+8. **Testing Strategy: Unit + Integration**
+   - **Why**: Unit tests verify business logic isolation; integration tests verify database interactions
+   - **Implementation**: Jest for testing; mocked Prisma client in unit tests; real database in integration tests
+   - **Coverage**: Core services (Auth, Tenants, Boards, Todos) and guards have unit tests
+
+9. **Frontend: React with Optimistic Updates**
+   - **Why**: Optimistic updates provide instant feedback while real-time events ensure eventual consistency
+   - **Implementation**: UI updates immediately on user action; Socket.IO events reconcile state across clients
 
 ## Multi‑Tenancy Strategy
 - Single schema; every tenant‑scoped table includes `tenant_id`
@@ -30,11 +74,62 @@ A secure, multi‑tenant, real‑time todo application (Trello‑style boards) b
 - Socket connections authenticated and bound to rooms `${tenantId}:${boardId}`
 - Future: document path to Postgres/Supabase RLS for defense‑in‑depth
 
-## Real‑Time Collaboration
-- NestJS Gateway (Socket.IO)
-- Authenticate on handshake; verify tenant; join `${tenantId}:${boardId}`
-- On todo CRUD, broadcast `todo.created|updated|deleted` to the room
-- Scales horizontally with Redis adapter (not required for this scope)
+## How Real-Time Updates Are Implemented
+
+### Architecture Overview
+
+Real-time collaboration is implemented using **Socket.IO** via NestJS WebSocket Gateway. The system uses a room-based architecture for efficient event distribution and strict tenant isolation.
+
+### Implementation Details
+
+1. **Connection & Authentication:**
+   - Clients connect to the Socket.IO server with a JWT token in the handshake (`auth.token`)
+   - The `x-tenant-id` header is required to bind the connection to a specific tenant
+   - Upon connection, the gateway:
+     - Validates the JWT token
+     - Extracts the user ID from the token payload
+     - Verifies the tenant ID is provided
+     - Automatically joins the tenant-wide boards room: `${tenantId}:boards`
+
+2. **Room Structure:**
+   - **Tenant-wide room**: `${tenantId}:boards` - All tenant members automatically join this room on connection. Used for board-level events (`board.created`, `board.updated`, `board.deleted`)
+   - **Board-specific room**: `${tenantId}:${boardId}` - Clients explicitly join this room via `join_board` event when viewing a specific board. Used for todo-level events (`todo.created`, `todo.updated`, `todo.deleted`)
+
+3. **Event Broadcasting:**
+   - When a user performs a CRUD operation (create/update/delete) on a board or todo, the corresponding service emits an event via `RealtimeService`
+   - Board events are broadcast to `${tenantId}:boards` room (affects board list)
+   - Todo events are broadcast to `${tenantId}:${boardId}` room (affects todos in that board)
+   - Only clients in the appropriate room receive the events
+
+4. **Frontend Integration:**
+   - The React frontend uses `socket.io-client` to connect to the backend
+   - On connection, the frontend automatically subscribes to tenant-wide board events
+   - When a user opens a board, the frontend emits `join_board` to receive todo-level updates
+   - Event listeners update the React state immediately, providing instant UI updates without page refresh
+   - **Optimistic UI updates** are implemented - the UI updates immediately on user action, then real-time events ensure consistency across all clients
+
+5. **Security & Isolation:**
+   - JWT authentication ensures only authenticated users can connect
+   - Tenant isolation is enforced at the room level - users can only join rooms for tenants they belong to
+   - Room naming convention (`${tenantId}:${boardId}`) prevents cross-tenant data leakage
+   - Server-side validation ensures users can only access tenant-scoped resources
+
+### Example Flow
+
+**Scenario**: Alice and Bob are both members of "Acme Corp" tenant. Both open the "Website Launch" board.
+
+1. Alice and Bob both connect to Socket.IO with their JWT tokens and `x-tenant-id: acme-corp-id`
+2. Both automatically join `${acme-corp-id}:boards` room
+3. When they open the "Website Launch" board, they both emit `join_board` with `boardId: website-launch-id`
+4. Both join `${acme-corp-id}:website-launch-id` room
+5. Alice creates a new todo "Deploy to production"
+6. The backend emits `todo.created` event to `${acme-corp-id}:website-launch-id` room
+7. Bob receives the event instantly and sees the new todo appear in his UI without refreshing
+
+### Scalability Considerations
+
+- For single-instance deployments, the current implementation works perfectly
+- For multi-instance/horizontal scaling, a Redis adapter can be added to Socket.IO to enable event distribution across instances (documented in "Trade-Offs & Future Work")
 
 ## API Surface (v1, REST)
 - Auth: `POST /v1/auth/signup`, `POST /v1/auth/login`, `GET /v1/me`
@@ -50,53 +145,177 @@ A secure, multi‑tenant, real‑time todo application (Trello‑style boards) b
 - Error model: consistent JSON, no internal leakage; audit‑friendly logs (no PII)
 - CORS and basic rate limiting enabled in app entrypoint
 
-## Project Structure (planned)
+## Project Structure
+
 ```
-/apps
-  /api
-    /src
-      /modules
-        /auth        # signup/login, JWT, guards
-        /tenants     # membership, tenant guard
-        /boards      # board CRUD (tenant‑scoped)
-        /todos       # todo CRUD (tenant + board‑scoped)
-        /realtime    # gateway + Socket.IO rooms
-      /common        # filters, interceptors, pipes, decorators
-      /prisma        # prisma client wrapper (optional repository)
-      main.ts, app.module.ts
-    /test            # unit + integration + e2e
-/prisma
-  schema.prisma
-.docker-compose.yml
+Carsu/
+├── apps/
+│   ├── api/                    # NestJS backend
+│   │   ├── src/
+│   │   │   ├── modules/
+│   │   │   │   ├── auth/       # Authentication (signup/login/JWT)
+│   │   │   │   ├── tenants/    # Tenant membership & guards
+│   │   │   │   ├── boards/     # Board CRUD
+│   │   │   │   ├── todos/      # Todo CRUD
+│   │   │   │   └── realtime/   # Socket.IO gateway
+│   │   │   ├── common/         # Shared utilities
+│   │   │   │   ├── decorators/ # Custom decorators (@CurrentUser, @ActiveTenant)
+│   │   │   │   ├── filters/    # Exception filters
+│   │   │   │   ├── interceptors/ # Logging interceptor
+│   │   │   │   ├── pipes/      # Validation pipes
+│   │   │   │   └── prisma/     # Prisma client service
+│   │   │   ├── health/         # Health check endpoints
+│   │   │   ├── main.ts         # Application bootstrap
+│   │   │   └── app.module.ts   # Root module
+│   │   ├── test/               # Unit & integration tests
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma   # Database schema
+│   │   │   └── migrations/     # Database migrations
+│   │   ├── Dockerfile
+│   │   └── package.json
+│   └── web/                    # React frontend
+│       ├── src/
+│       │   ├── lib/
+│       │   │   ├── api.ts      # API client
+│       │   │   └── socket.ts   # Socket.IO client
+│       │   ├── ui/
+│       │   │   └── App.tsx     # Main application component
+│       │   ├── main.tsx
+│       │   └── styles.css
+│       ├── Dockerfile
+│       └── package.json
+├── scripts/
+│   └── dev.sh                  # Development setup script
+├── docker-compose.yml          # Docker orchestration
+├── pnpm-workspace.yaml         # pnpm monorepo config
+├── README.md                   # This file
+└── .gitignore
 ```
 
-## Local Setup
-Prereqs: Docker, Node 20+, pnpm 9+
+## How to Run the App
 
-1) Clone and install deps (will follow after scaffolding):
+### Prerequisites
+- Docker & Docker Compose
+- Node.js 20+ (optional, if running locally without Docker)
+- pnpm 9+ (optional, if running locally)
+
+### Option 1: Docker Compose (Recommended - Easiest Setup)
+
+1. **Clone the repository:**
+```bash
+git clone https://github.com/sassihamdi-CD/Carsu.git
+cd Carsu
 ```
+
+2. **Start all services (database, API, frontend):**
+```bash
+docker-compose up -d --build
+```
+
+Or use the convenience script:
+```bash
+chmod +x scripts/dev.sh
+./scripts/dev.sh
+```
+
+3. **Run database migrations:**
+```bash
+# Enter the API container
+docker exec -it carsu_api sh
+
+# Generate Prisma client and run migrations
+cd /app/apps/api
+npx prisma generate
+npx prisma migrate deploy
+exit
+```
+
+4. **Access the application:**
+- **Frontend**: http://localhost:5174
+- **API**: http://localhost:4000
+- **API Documentation (Swagger)**: http://localhost:4000/docs
+- **Health Check**: http://localhost:4000/v1/health
+
+5. **View logs:**
+```bash
+docker-compose logs -f
+```
+
+6. **Stop services:**
+```bash
+docker-compose down
+# To remove volumes (database data):
+docker-compose down -v
+```
+
+### Option 2: Local Development (Without Docker)
+
+1. **Install dependencies:**
+```bash
 pnpm install
 ```
-2) Start services:
-```
-docker-compose up -d
-```
-3) Database:
-```
-pnpm prisma:migrate
-pnpm prisma:seed   # optional
-```
-4) Run API:
-```
-pnpm dev
+
+2. **Start PostgreSQL** (ensure it's running on port 5433, or update `DATABASE_URL` in `apps/api/.env`)
+
+3. **Setup database:**
+```bash
+cd apps/api
+npx prisma generate
+npx prisma migrate dev
 ```
 
-Detailed commands will be added as scripts in `package.json` during implementation.
+4. **Create environment file:**
+```bash
+# apps/api/.env
+DATABASE_URL="postgresql://carsu:carsu@localhost:5433/carsu?schema=public"
+JWT_SECRET="dev_jwt_secret_change_me"
+PORT=3000
+NODE_ENV=development
+```
 
-## Testing & CI
-- Jest unit and integration tests (Supertest)
-- Socket e2e test for real‑time event delivery
-- GitHub Actions workflow to run lint, typecheck, and tests on push
+5. **Start backend:**
+```bash
+cd apps/api
+pnpm run start:dev
+```
+
+6. **Start frontend** (in another terminal):
+```bash
+cd apps/web
+pnpm run dev
+```
+
+Access the frontend at http://localhost:5173
+
+## Testing
+
+### Unit Tests
+- **Location**: `apps/api/test/`
+- **Coverage**: Core services (Auth, Tenants, Boards, Todos, Realtime), guards, and decorators
+- **Run**: `cd apps/api && pnpm test`
+- **Watch mode**: `pnpm test:watch`
+- **Coverage report**: `pnpm test:cov`
+
+### Integration Tests
+- **Location**: `apps/api/test/` (end-to-end tests)
+- **Coverage**: API endpoints with real database
+- **Run**: `cd apps/api && pnpm test:e2e`
+
+### Test Examples
+- Authentication flow (signup, login, JWT validation)
+- Tenant membership checks
+- Board CRUD with tenant isolation
+- Todo CRUD with tenant and board scoping
+- Real-time event emission and room management
+
+### CI/CD
+- **Status**: ✅ Implemented via GitHub Actions
+- **Workflow**: `.github/workflows/ci.yml`
+- **Runs on**: Push and pull requests to `main`/`develop` branches
+- **Jobs**:
+  - **Lint & Type Check**: Runs ESLint and TypeScript type checking for API and Web
+  - **Test API**: Runs unit tests with PostgreSQL service container, generates coverage reports
+- **Coverage**: Codecov integration for coverage tracking (optional)
 
 ## Delivery Plan (Commits Order)
 1. docs: enrich README with architecture, scope, and plan (this commit)
@@ -110,11 +329,89 @@ Detailed commands will be added as scripts in `package.json` during implementati
 9. test: add unit/integration/e2e; ci: GitHub Actions
 10. docs: finalize README (run, demo, trade‑offs, future work)
 
-## Trade‑Offs & Future Work
-- Single‑schema enforcement now; move to RLS for ironclad isolation later
-- Basic roles (membership) now; expand to RBAC per board
-- Add pagination, filtering, and audit logs
-- Add Redis adapter for sockets in multi‑instance deployments
+## Trade‑Offs & Things to Improve with More Time
+
+### Current Trade‑Offs
+
+1. **Multi-Tenancy: Application-Level Enforcement**
+   - **Current**: Tenant isolation enforced at application layer (service queries filter by `tenant_id`)
+   - **Trade-off**: Requires discipline in code reviews; single bug could expose cross-tenant data
+   - **Future**: Add PostgreSQL Row Level Security (RLS) for defense-in-depth at the database level
+
+2. **Real-Time: Single-Instance Socket.IO**
+   - **Current**: Socket.IO in-memory adapter (works for single server)
+   - **Trade-off**: Won't scale horizontally without Redis adapter
+   - **Future**: Add Redis adapter for Socket.IO to enable multi-instance deployments
+
+3. **Authorization: Basic Role System**
+   - **Current**: Simple membership check (user is member of tenant or not)
+   - **Trade-off**: All members have same permissions; no fine-grained access control
+   - **Future**: Implement RBAC (owner/admin/member roles) with per-board permissions
+
+4. **Pagination: Cursor-Based Only**
+   - **Current**: Cursor-based pagination for boards and todos
+   - **Trade-off**: No offset-based pagination; can't jump to specific pages
+   - **Future**: Add offset pagination option; implement filtering and sorting
+
+5. **Caching: First-Page Only**
+   - **Current**: First page of boards/todos is cached for 60 seconds
+   - **Trade-off**: Subsequent pages are not cached; cache invalidation is simple but may miss edge cases
+   - **Future**: Implement more sophisticated caching strategy with Redis; add cache warming
+
+6. **Error Messages: Generic for Security**
+   - **Current**: Error messages don't reveal whether a resource exists or user lacks permission (prevents enumeration attacks)
+   - **Trade-off**: Less helpful error messages for debugging
+   - **Future**: Log detailed errors server-side; return generic messages to clients
+
+7. **Frontend: Minimal Error Handling**
+   - **Current**: Basic error display; no retry logic or offline support
+   - **Trade-off**: Network failures require manual retry
+   - **Future**: Add retry logic with exponential backoff; implement offline queue
+
+### Improvements for Production
+
+1. **Security Enhancements:**
+   - Add rate limiting per user/tenant (currently global)
+   - Implement refresh token rotation
+   - Add CSRF protection for state-changing operations
+   - Implement input sanitization to prevent XSS
+   - Add security headers (helmet is configured, but can be more restrictive)
+
+2. **Observability:**
+   - Add structured logging with correlation IDs
+   - Implement distributed tracing (e.g., OpenTelemetry)
+   - Add metrics collection (Prometheus/Grafana)
+   - Set up alerting for errors and performance degradation
+
+3. **Performance:**
+   - Add database query optimization and connection pooling tuning
+   - Implement CDN for frontend static assets
+   - Add API response compression
+   - Optimize Prisma queries (N+1 prevention, query batching)
+
+4. **Testing:**
+   - Add end-to-end tests with Playwright/Cypress
+   - Increase unit test coverage to >80%
+   - Add load testing with k6 or Artillery
+   - Test multi-instance Socket.IO with Redis adapter
+
+5. **Documentation:**
+   - Add API usage examples and common workflows
+   - Document deployment procedures for different environments
+   - Add architecture decision records (ADRs)
+   - Create developer onboarding guide
+
+6. **CI/CD:**
+   - Set up GitHub Actions workflow for automated testing
+   - Add automated dependency updates (Dependabot)
+   - Implement automated security scanning
+   - Add deployment pipelines for staging/production
+
+7. **Database:**
+   - Add database migrations rollback strategy
+   - Implement database backup and recovery procedures
+   - Add database monitoring and slow query logging
+   - Consider read replicas for scaling reads
 
 ---
 

@@ -3,12 +3,18 @@
  * Usage: Called by BoardsController after guards validate authentication and tenant membership.
  * Why: Centralizes data access and rules (scoping by tenant, 404 vs 403 decisions, projections).
  * Notes: Uses minimal Prisma selects for performance; add pagination in listBoards if needed.
+ * 
+ * Logging Strategy:
+ * - log(): Important business events (board created, updated, deleted) for audit trail
+ * - debug(): Realtime event emissions (verbose, filtered in production via LOG_LEVEL)
+ * - error(): Critical failures (realtime emission errors, cache failures are silently handled)
  */
 import { Injectable, NotFoundException, ForbiddenException, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
+import { RealtimeService } from '../realtime/realtime.service.js';
 
 @Injectable()
 export class BoardsService {
@@ -16,6 +22,7 @@ export class BoardsService {
     private readonly prisma: PrismaService,
     private readonly tenantsService: TenantsService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly realtime: RealtimeService,
   ) {}
 
   private readonly logger = new Logger(BoardsService.name);
@@ -75,6 +82,13 @@ export class BoardsService {
     // Invalidate first page cache for this tenant; ignore cache errors
     try { await this.cache.del(`tenant:${tenantId}:boards:first:20`); } catch {}
     this.logger.log(`board_created tenant=${tenantId} board=${board.id}`);
+    // Emit realtime event for board creation (silently handle failures to avoid cascading errors)
+    try { 
+      this.realtime.emitToTenant(tenantId, 'board.created', { id: board.id, name: board.name });
+      this.logger.debug(`Emitted board.created event for tenant ${tenantId}`);
+    } catch (err) {
+      this.logger.error(`Failed to emit board.created event:`, err);
+    }
     return { id: board.id, name: board.name };
   }
 
@@ -106,6 +120,13 @@ export class BoardsService {
     // Invalidate cached first page quietly
     try { await this.cache.del(`tenant:${tenantId}:boards:first:20`); } catch {}
     this.logger.log(`board_updated tenant=${tenantId} board=${boardId}`);
+    // Emit realtime event for board update (silently handle failures)
+    try {
+      this.realtime.emitToTenant(tenantId, 'board.updated', { id: boardId, name });
+      this.logger.debug(`Emitted board.updated event for tenant ${tenantId}`);
+    } catch (err) {
+      this.logger.error(`Failed to emit board.updated event:`, err);
+    }
     return { id: boardId, name };
   }
 
@@ -123,6 +144,13 @@ export class BoardsService {
     // Invalidate cached first page quietly
     try { await this.cache.del(`tenant:${tenantId}:boards:first:20`); } catch {}
     this.logger.log(`board_deleted tenant=${tenantId} board=${boardId}`);
+    // Emit realtime event for board deletion (silently handle failures)
+    try {
+      this.realtime.emitToTenant(tenantId, 'board.deleted', { id: boardId });
+      this.logger.debug(`Emitted board.deleted event for tenant ${tenantId}`);
+    } catch (err) {
+      this.logger.error(`Failed to emit board.deleted event:`, err);
+    }
     return { deleted: true };
   }
 }

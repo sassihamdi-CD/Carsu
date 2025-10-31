@@ -23,17 +23,22 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.1",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.1.8",
     "@nestjs/swagger": "^11.2.1",
     "@nestjs/terminus": "^11.0.0",
     "@nestjs/throttler": "^6.4.0",
+    "@nestjs/websockets": "^11.1.8",
     "@prisma/client": "^5.20.0",
     "bcrypt": "^6.0.0",
+    "cache-manager": "^5.7.6",
+    "cache-manager-redis-store": "^3.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "helmet": "^7.1.0",
@@ -42,6 +47,7 @@
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.8.1",
     "swagger-ui-express": "^5.0.1",
     "zod": "^3.23.8"
   },
@@ -75,11 +81,26 @@
     "typescript-eslint": "^8.20.0"
   },
   "jest": {
-    "moduleFileExtensions": ["js", "json", "ts"],
-    "roots": ["<rootDir>/src", "<rootDir>/test"],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "roots": [
+      "<rootDir>/src",
+      "<rootDir>/test"
+    ],
     "testRegex": ".*\\.spec\\.ts$",
-    "transform": { "^.+\\.(t|j)s$": "ts-jest" },
-    "collectCoverageFrom": ["src/**/*.(t|j)s", "test/**/*.(t|j)s"],
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "src/**/*.(t|j)s",
+      "test/**/*.(t|j)s"
+    ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
   }
