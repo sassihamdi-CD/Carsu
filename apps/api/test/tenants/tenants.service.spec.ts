@@ -4,8 +4,8 @@
  * Why: Ensures tenant isolation helpers are correct and predictable.
  */
 import { Test } from '@nestjs/testing';
-import { TenantsService } from '../src/modules/tenants/tenants.service';
-import { PrismaService } from '../src/common/prisma/prisma.service';
+import { TenantsService } from '../../src/modules/tenants/tenants.service';
+import { PrismaService } from '../../src/common/prisma/prisma.service';
 
 describe('TenantsService', () => {
   it('lists memberships mapped to summaries', async () => {

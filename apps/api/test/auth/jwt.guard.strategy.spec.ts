@@ -8,8 +8,8 @@
  */
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { JwtStrategy } from '../src/modules/auth/jwt.strategy';
-import { JwtAuthGuard } from '../src/modules/auth/jwt-auth.guard';
+import { JwtStrategy } from '../../src/modules/auth/jwt.strategy';
+import { JwtAuthGuard } from '../../src/modules/auth/jwt-auth.guard';
 
 describe('JwtAuthGuard and JwtStrategy', () => {
   it('JwtStrategy.validate maps payload to principal', async () => {

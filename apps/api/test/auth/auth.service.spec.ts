@@ -10,8 +10,8 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { AuthService } from '../src/modules/auth/auth.service';
-import { PrismaService } from '../src/common/prisma/prisma.service';
+import { AuthService } from '../../src/modules/auth/auth.service';
+import { PrismaService } from '../../src/common/prisma/prisma.service';
 
 describe('AuthService', () => {
   let service: AuthService;
