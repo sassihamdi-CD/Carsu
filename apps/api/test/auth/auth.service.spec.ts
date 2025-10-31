@@ -1,5 +1,5 @@
 /**
- * Purpose: Unit tests for AuthService business logic.
+ * Purpose: Unit tests for AuthService business logic (auth feature).
  * Scope:
  *  - signup: happy path, unique email conflict mapping
  *  - login: unknown user rejection

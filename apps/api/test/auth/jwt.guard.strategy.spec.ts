@@ -1,5 +1,5 @@
 /**
- * Purpose: Unit tests for JWT guard/strategy behavior.
+ * Purpose: Unit tests for JWT guard/strategy behavior (auth feature).
  * Scope:
  *  - Strategy validate mapping payload -> principal
  *  - Guard public bypass via @Public metadata
