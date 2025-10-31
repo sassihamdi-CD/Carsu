@@ -346,7 +346,7 @@ sequenceDiagram
     Database-->>AuthService: User Data
     AuthService->>AuthService: Verify Password (bcrypt)
     AuthService->>AuthService: Generate JWT Token
-    AuthService-->>API: {token,작userId}
+    AuthService-->>API: {token, userId}
     API-->>Client: JWT Token
 
     Note over Client: Authenticated Request Flow
