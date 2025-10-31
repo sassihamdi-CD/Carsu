@@ -20,7 +20,88 @@ A secure, multi‑tenant, real‑time todo application (Trello‑style boards) b
 
 ### High-Level Architecture
 
-The application follows a **layered, modular architecture** built with NestJS. See the "Project Structure" section above for visual representation of the codebase organization.
+The application follows a **layered, modular architecture** built with NestJS. The diagram below illustrates the system architecture:
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        WEB[React Frontend<br/>Port 5174]
+        WS[Socket.IO Client]
+    end
+
+    subgraph "API Layer - NestJS"
+        API[NestJS API Server<br/>Port 4000]
+        
+        subgraph "Modules"
+            AUTH[Auth Module<br/>JWT Strategy]
+            TENANT[Tenants Module<br/>Membership Management]
+            BOARD[Boards Module<br/>CRUD Operations]
+            TODO[Todos Module<br/>CRUD Operations]
+            REALTIME[Realtime Module<br/>Socket.IO Gateway]
+        end
+        
+        subgraph "Common Services"
+            PRISMA[Prisma Service<br/>Database Client]
+            CACHE[Cache Manager<br/>First Page Cache]
+            GUARD[JWT & Tenant Guards<br/>Authorization]
+        end
+    end
+
+    subgraph "Data Layer"
+        PG[(PostgreSQL Database<br/>Port 5433)]
+    end
+
+    WEB -->|HTTP/REST| API
+    WS -->|WebSocket| REALTIME
+    API --> AUTH
+    API --> TENANT
+    API --> BOARD
+    API --> TODO
+    API --> REALTIME
+    BOARD --> PRISMA
+    TODO --> PRISMA
+    TENANT --> PRISMA
+    AUTH --> PRISMA
+    BOARD --> CACHE
+    TODO --> CACHE
+    BOARD --> REALTIME
+    TODO --> REALTIME
+    PRISMA --> PG
+    REALTIME -->|Real-time Events| WS
+```
+
+### System Components Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Gateway
+    participant Guard
+    participant Service
+    participant Prisma
+    participant Cache
+    participant Realtime
+    participant Socket
+
+    Client->>Gateway: HTTP Request + JWT + x-tenant-id
+    Gateway->>Guard: JwtAuthGuard
+    Guard->>Guard: Validate JWT Token
+    Guard->>Guard: TenantGuard (Check Membership)
+    Guard->>Service: Request Authorized
+    Service->>Cache: Check Cache (First Page)
+    alt Cache Hit
+        Cache-->>Service: Return Cached Data
+    else Cache Miss
+        Service->>Prisma: Database Query (tenant_id scoped)
+        Prisma-->>Service: Query Results
+        Service->>Cache: Store in Cache
+    end
+    Service->>Realtime: Emit Event (if mutation)
+    Realtime->>Socket: Broadcast to Room
+    Socket-->>Client: Real-time Update (WebSocket)
+    Service-->>Gateway: Response
+    Gateway-->>Client: JSON Response
+```
 
 ### Key Design Decisions
 
@@ -74,11 +155,143 @@ The application follows a **layered, modular architecture** built with NestJS. S
 - Socket connections authenticated and bound to rooms `${tenantId}:${boardId}`
 - Future: document path to Postgres/Supabase RLS for defense‑in‑depth
 
+### Database Schema
+
+```mermaid
+erDiagram
+    User ||--o{ UserTenant : "belongs to"
+    Tenant ||--o{ UserTenant : "has members"
+    Tenant ||--o{ Board : "contains"
+    Board ||--o{ Todo : "contains"
+    User ||--o{ Todo : "assigned to"
+
+    User {
+        string id PK "CUID"
+        string email UK "Unique"
+        string passwordHash "Bcrypt"
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    Tenant {
+        string id PK "CUID"
+        string name
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    UserTenant {
+        string userId FK
+        string tenantId FK
+        string role "member/owner"
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    Board {
+        string id PK "CUID"
+        string tenantId FK "Multi-tenant scoping"
+        string name
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    Todo {
+        string id PK "CUID"
+        string tenantId FK "Multi-tenant scoping"
+        string boardId FK
+        string title
+        string description
+        string status "TODO/IN_PROGRESS/DONE"
+        string assigneeUserId FK "Nullable"
+        datetime createdAt
+        datetime updatedAt
+    }
+```
+
+**Key Design Points:**
+- **Tenant Isolation**: `tenant_id` on Board and Todo ensures data segregation
+- **Composite Keys**: `UserTenant` uses composite primary key `(userId, tenantId)` for fast membership lookups
+- **Indexes**: Added on `tenant_id`, `board_id`, and composite keys for query performance
+- **Cascade Deletes**: Deleting a tenant cascades to boards and todos automatically
+
 ## How Real-Time Updates Are Implemented
 
 ### Architecture Overview
 
 Real-time collaboration is implemented using **Socket.IO** via NestJS WebSocket Gateway. The system uses a room-based architecture for efficient event distribution and strict tenant isolation.
+
+### Real-Time Collaboration Flow
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant Bob
+    participant SocketIO
+    participant Gateway
+    participant Service
+    participant Database
+
+    Note over Alice,Bob: Both users connect to Socket.IO
+    
+    Alice->>SocketIO: Connect (JWT + x-tenant-id: acme-corp)
+    Bob->>SocketIO: Connect (JWT + x-tenant-id: acme-corp)
+    
+    SocketIO->>Gateway: Authenticate & Validate Tenant
+    Gateway->>Gateway: Join Room: "acme-corp:boards"
+    
+    Note over Alice,Bob: Both users open the same board
+    
+    Alice->>SocketIO: join_board {boardId: website-launch}
+    Bob->>SocketIO: join_board {boardId: website-launch}
+    SocketIO->>Gateway: Join Room: "acme-corp:website-launch"
+    
+    Note over Alice: Alice creates a new todo
+    
+    Alice->>Service: POST /todos (Create "Deploy to production")
+    Service->>Database: Insert Todo (tenant_id scoped)
+    Database-->>Service: Todo Created
+    Service->>Gateway: Emit "todo.created" to "acme-corp:website-launch"
+    Gateway->>SocketIO: Broadcast to Room
+    SocketIO->>Alice: todo.created Event (Confirmation)
+    SocketIO->>Bob: todo.created Event (Real-time Update)
+    Bob->>Bob: Update UI (New todo appears instantly)
+```
+
+### Room Structure & Event Routing
+
+```mermaid
+graph TB
+    subgraph "Socket.IO Rooms"
+        TR[Tenant Room<br/>tenant-123:boards]
+        BR1[Board Room 1<br/>tenant-123:board-456]
+        BR2[Board Room 2<br/>tenant-123:board-789]
+    end
+
+    subgraph "Events"
+        BE[Board Events<br/>board.created<br/>board.updated<br/>board.deleted]
+        TE[Todo Events<br/>todo.created<br/>todo.updated<br/>todo.deleted]
+    end
+
+    subgraph "Clients"
+        C1[Alice<br/>Member of tenant-123]
+        C2[Bob<br/>Member of tenant-123]
+        C3[Charlie<br/>Member of tenant-456]
+    end
+
+    C1 -->|Auto-join| TR
+    C2 -->|Auto-join| TR
+    C1 -->|Explicit join| BR1
+    C2 -->|Explicit join| BR1
+    C1 -->|Explicit join| BR2
+
+    BE -->|Broadcast to| TR
+    TE -->|Broadcast to| BR1
+    TE -->|Broadcast to| BR2
+
+    Note1[Alice & Bob receive board events]
+    Note2[Only clients in BR1 receive todo events for board-456]
+    Note3[Charlie cannot join tenant-123 rooms]
 
 ### Implementation Details
 
