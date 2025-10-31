@@ -97,7 +97,7 @@ jobs:
           cd apps/api
           pnpm exec prisma generate
 
-      vou - name: Run database migrations
+      - name: Run database migrations
         run: |
           cd apps/api
           pnpm prisma migrate deploy
