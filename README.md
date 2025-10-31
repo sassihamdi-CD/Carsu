@@ -574,7 +574,7 @@ Access the frontend at http://localhost:5173
 - Real-time event emission and room management
 
 ### CI/CD
-- **Status**: ✅ Implemented via GitHub Actions
+- **Status**: Implemented via GitHub Actions
 - **Workflow**: `.github/workflows/ci.yml`
 - **Runs on**: Push and pull requests to `main`/`develop` branches
 - **Jobs**:
