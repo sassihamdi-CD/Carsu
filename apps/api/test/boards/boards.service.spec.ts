@@ -67,7 +67,9 @@ describe('BoardsService', () => {
    */
   it('denies when not a member', async () => {
     tenants.isUserMemberOfTenant.mockResolvedValueOnce(false);
-    await expect(service.listBoards('u1', 't1')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.listBoards('u1', 't1')).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   /**
@@ -90,7 +92,9 @@ describe('BoardsService', () => {
     const ok = await service.getBoard('u1', 't1', 'b1');
     expect(ok.id).toBe('b1');
     prisma.board.findFirst.mockResolvedValueOnce(null);
-    await expect(service.getBoard('u1', 't1', 'b2')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getBoard('u1', 't1', 'b2')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   /**
@@ -104,7 +108,9 @@ describe('BoardsService', () => {
     expect(out).toEqual({ id: 'b1', name: 'X' });
     // missing
     prisma.board.findFirst.mockResolvedValueOnce(null);
-    await expect(service.updateBoard('u1', 't1', 'b3', 'Y')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.updateBoard('u1', 't1', 'b3', 'Y'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   /**
@@ -117,8 +123,8 @@ describe('BoardsService', () => {
     const out = await service.deleteBoard('u1', 't1', 'b1');
     expect(out).toEqual({ deleted: true });
     prisma.board.findFirst.mockResolvedValueOnce(null);
-    await expect(service.deleteBoard('u1', 't1', 'b2')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.deleteBoard('u1', 't1', 'b2')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });
-
-

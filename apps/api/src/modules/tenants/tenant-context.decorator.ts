@@ -13,7 +13,9 @@ export const ActiveTenant = createParamDecorator(
     // Prefer value set by TenantGuard
     if (req.activeTenantId) return req.activeTenantId as string;
     // Fallback to header
-    const header = (req.headers[X_TENANT_ID] || req.headers['X-Tenant-Id']) as string | undefined;
+    const header = (req.headers[X_TENANT_ID] || req.headers['X-Tenant-Id']) as
+      | string
+      | undefined;
     return typeof header === 'string' ? header.trim() : undefined;
   },
 );

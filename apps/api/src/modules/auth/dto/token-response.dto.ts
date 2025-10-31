@@ -10,5 +10,3 @@ export class TokenResponseDto {
   @ApiProperty({ description: 'Authenticated user ID' })
   userId: string;
 }
-
-

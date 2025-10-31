@@ -12,5 +12,3 @@ export class IdParamPipe implements PipeTransform<string, string> {
     return v;
   }
 }
-
-

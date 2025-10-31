@@ -17,5 +17,3 @@ import { TenantsService } from '../tenants/tenants.service';
   providers: [BoardsService, PrismaService, TenantsService],
 })
 export class BoardsModule {}
-
-

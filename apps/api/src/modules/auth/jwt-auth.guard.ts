@@ -4,7 +4,11 @@
  * Why: Ensures only valid users act on API; essential for all tenant/resource isolation.
  * Notes: Leverages JWT strategy; can be extended for role checks or tenant enforcement.
  */
-import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../../common/decorators/public.decorator';

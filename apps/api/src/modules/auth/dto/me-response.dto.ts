@@ -29,5 +29,3 @@ export class MeResponseDto {
   @ApiProperty({ type: [MeTenantDto] })
   tenants: MeTenantDto[];
 }
-
-

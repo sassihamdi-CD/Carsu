@@ -3,7 +3,7 @@
  * Usage: Can be applied globally or per-controller via app/useInterceptors or @UseInterceptors.
  * Why: A lightweight starting point for observability; easy to evolve to pino/winston with correlation IDs.
  * Notes: Avoid logging PII; enrich with request IDs and user/tenant context later.
- * 
+ *
  * Logging Strategy:
  * - Uses NestJS Logger for consistency and production-ready log management
  * - Logs all HTTP requests with method, path, and duration for observability
@@ -43,5 +43,3 @@ export class LoggingInterceptor implements NestInterceptor {
     );
   }
 }
-
-

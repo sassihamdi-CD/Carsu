@@ -4,7 +4,14 @@
  * Why: Keeps API contracts explicit, typed, and documented for clients.
  */
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, Min, MinLength, MaxLength, IsInt } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  Min,
+  MinLength,
+  MaxLength,
+  IsInt,
+} from 'class-validator';
 
 export class BoardSummaryDto {
   /** Board identifier */
@@ -33,12 +40,20 @@ export class UpdateBoardDto {
 }
 
 export class ListBoardsQueryDto {
-  @ApiProperty({ required: false, description: 'Cursor (board id) for pagination' })
+  @ApiProperty({
+    required: false,
+    description: 'Cursor (board id) for pagination',
+  })
   @IsOptional()
   @IsString()
   cursor?: string;
 
-  @ApiProperty({ required: false, description: 'Page size', default: 20, minimum: 1 })
+  @ApiProperty({
+    required: false,
+    description: 'Page size',
+    default: 20,
+    minimum: 1,
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -60,5 +75,3 @@ export class BoardsListResponseDto {
   @ApiProperty({ type: BoardsListMetaDto })
   meta: BoardsListMetaDto;
 }
-
-

@@ -21,5 +21,3 @@ export class HealthController {
     return this.health.check([() => this.prisma.isHealthy('database')]);
   }
 }
-
-

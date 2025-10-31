@@ -69,7 +69,9 @@ describe('TodosService', () => {
    */
   it('denies when not a member', async () => {
     tenants.isUserMemberOfTenant.mockResolvedValueOnce(false);
-    await expect(service.listTodos('u1', 'tenant', 'board')).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.listTodos('u1', 'tenant', 'board'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   /**
@@ -77,8 +79,20 @@ describe('TodosService', () => {
    */
   it('creates todo and invalidates cache', async () => {
     prisma.board.findFirst.mockResolvedValueOnce({ id: 'board' });
-    prisma.todo.create.mockResolvedValueOnce({ id: 't1', title: 'Task', status: 'TODO', assigneeUserId: null });
-    const out = await service.createTodo('u1', 'tenant', 'board', 'Task', 'desc', TodoStatusDto.TODO);
+    prisma.todo.create.mockResolvedValueOnce({
+      id: 't1',
+      title: 'Task',
+      status: 'TODO',
+      assigneeUserId: null,
+    });
+    const out = await service.createTodo(
+      'u1',
+      'tenant',
+      'board',
+      'Task',
+      'desc',
+      TodoStatusDto.TODO,
+    );
     expect(out.id).toBe('t1');
     expect(cache.del).toHaveBeenCalled();
   });
@@ -89,7 +103,14 @@ describe('TodosService', () => {
   it('fails to create when board is not in tenant', async () => {
     prisma.board.findFirst.mockResolvedValueOnce(null);
     await expect(
-      service.createTodo('u1', 'tenant', 'boardX', 'Task', undefined, TodoStatusDto.TODO),
+      service.createTodo(
+        'u1',
+        'tenant',
+        'boardX',
+        'Task',
+        undefined,
+        TodoStatusDto.TODO,
+      ),
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
@@ -97,11 +118,19 @@ describe('TodosService', () => {
    * Verifies: getTodo scopes by tenant and returns 404 when absent.
    */
   it('gets todo within tenant or 404', async () => {
-    prisma.todo.findFirst.mockResolvedValueOnce({ id: 't1', title: 'Task', status: 'TODO', assigneeUserId: null, boardId: 'b' });
+    prisma.todo.findFirst.mockResolvedValueOnce({
+      id: 't1',
+      title: 'Task',
+      status: 'TODO',
+      assigneeUserId: null,
+      boardId: 'b',
+    });
     const ok = await service.getTodo('u1', 'tenant', 't1');
     expect(ok.id).toBe('t1');
     prisma.todo.findFirst.mockResolvedValueOnce(null);
-    await expect(service.getTodo('u1', 'tenant', 't2')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getTodo('u1', 'tenant', 't2')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   /**
@@ -111,11 +140,21 @@ describe('TodosService', () => {
     // Arrange: exists -> updateMany -> subsequent getTodo returns updated entity
     prisma.todo.findFirst.mockResolvedValueOnce({ id: 't1', boardId: 'b' });
     prisma.todo.updateMany.mockResolvedValueOnce({ count: 1 });
-    prisma.todo.findFirst.mockResolvedValueOnce({ id: 't1', title: 'Task', status: 'IN_PROGRESS', assigneeUserId: null, boardId: 'b' });
-    const updated = await service.updateTodo('u1', 'tenant', 't1', { status: TodoStatusDto.IN_PROGRESS });
+    prisma.todo.findFirst.mockResolvedValueOnce({
+      id: 't1',
+      title: 'Task',
+      status: 'IN_PROGRESS',
+      assigneeUserId: null,
+      boardId: 'b',
+    });
+    const updated = await service.updateTodo('u1', 'tenant', 't1', {
+      status: TodoStatusDto.IN_PROGRESS,
+    });
     expect(updated.status).toBe('IN_PROGRESS');
     prisma.todo.findFirst.mockResolvedValueOnce(null);
-    await expect(service.updateTodo('u1', 'tenant', 'tX', { title: 'X' })).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.updateTodo('u1', 'tenant', 'tX', { title: 'X' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   /**
@@ -127,8 +166,8 @@ describe('TodosService', () => {
     const out = await service.deleteTodo('u1', 'tenant', 't1');
     expect(out).toEqual({ deleted: true });
     prisma.todo.findFirst.mockResolvedValueOnce(null);
-    await expect(service.deleteTodo('u1', 'tenant', 'tX')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(
+      service.deleteTodo('u1', 'tenant', 'tX'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
-
-

@@ -16,10 +16,10 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Configure Socket.IO adapter for WebSocket support
   app.useWebSocketAdapter(new IoAdapter(app));
-  
+
   app.enableShutdownHooks();
 
   app.use(helmet());
@@ -55,4 +55,4 @@ async function bootstrap() {
 
   await app.listen(port);
 }
-bootstrap();
+void bootstrap();

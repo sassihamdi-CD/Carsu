@@ -10,5 +10,3 @@ export class AddMemberDto {
   @IsEmail()
   email: string;
 }
-
-

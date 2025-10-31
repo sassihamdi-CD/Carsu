@@ -4,15 +4,48 @@
  * Why: Enforces isolation at the API edge, validates inputs, shapes responses for clients.
  * Notes: Uses IdParamPipe on all ids; relies on ActiveTenant to align header with route param.
  */
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBadRequestResponse, ApiBearerAuth, ApiBody, ApiConsumes, ApiCreatedResponse, ApiForbiddenResponse, ApiNoContentResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiParam, ApiProduces, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiProduces,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantGuard } from '../tenants/tenant.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { RequestUser } from '../../common/decorators/current-user.decorator';
 import { ActiveTenant } from '../tenants/tenant-context.decorator';
 import { IdParamPipe } from '../../common/pipes/id-param.pipe';
-import { CreateTodoDto, ListTodosQueryDto, TodoSummaryDto, TodosListResponseDto, UpdateTodoDto } from './dto/todo.dto';
+import {
+  CreateTodoDto,
+  ListTodosQueryDto,
+  TodoSummaryDto,
+  TodosListResponseDto,
+  UpdateTodoDto,
+} from './dto/todo.dto';
 import { TodosService } from './todos.service';
 
 @ApiTags('todos')
@@ -32,7 +65,11 @@ export class TodosController {
   @ApiOperation({ summary: 'List todos for a board' })
   @ApiParam({ name: 'boardId' })
   @ApiQuery({ name: 'cursor', required: false })
-  @ApiQuery({ name: 'limit', required: false, schema: { default: 20, minimum: 1, type: 'integer' } })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    schema: { default: 20, minimum: 1, type: 'integer' },
+  })
   @ApiOkResponse({ type: TodosListResponseDto })
   @ApiForbiddenResponse({ description: 'Tenant access denied' })
   async list(
@@ -43,7 +80,13 @@ export class TodosController {
     @Query() query?: ListTodosQueryDto,
   ) {
     const tenantId = activeTenantId ?? tenantIdParam;
-    return this.todos.listTodos(user.userId, tenantId, boardId, query?.cursor, query?.limit ?? 20);
+    return this.todos.listTodos(
+      user.userId,
+      tenantId,
+      boardId,
+      query?.cursor,
+      query?.limit ?? 20,
+    );
   }
 
   /**
@@ -65,7 +108,15 @@ export class TodosController {
     @ActiveTenant() activeTenantId?: string,
   ) {
     const tenantId = activeTenantId ?? tenantIdParam;
-    return this.todos.createTodo(user.userId, tenantId, boardId, dto.title, dto.description, dto.status, dto.assigneeUserId);
+    return this.todos.createTodo(
+      user.userId,
+      tenantId,
+      boardId,
+      dto.title,
+      dto.description,
+      dto.status,
+      dto.assigneeUserId,
+    );
   }
 
   /**
@@ -129,5 +180,3 @@ export class TodosController {
     return;
   }
 }
-
-

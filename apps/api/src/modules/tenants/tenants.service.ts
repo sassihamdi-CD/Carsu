@@ -3,12 +3,17 @@
  * Usage: Used by TenantsController and other domain services to check user-tenant relationships.
  * Why: Keeps tenant membership isolation rules in one place—reducing risk of bugs/IDOR.
  * Notes: Must always enforce user membership when reading tenant-bound data.
- * 
+ *
  * Logging Strategy:
  * - Minimal logging (membership checks are high-frequency, would be too verbose)
  * - Future: Consider adding debug logging for membership operations if needed for troubleshooting
  */
-import { Injectable, NotFoundException, Logger, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 @Injectable()
@@ -24,10 +29,17 @@ export class TenantsService {
       include: { tenant: true },
       orderBy: { tenantId: 'asc' },
     });
-    return memberships.map((m) => ({ id: m.tenantId, name: m.tenant.name, role: m.role }));
+    return memberships.map((m) => ({
+      id: m.tenantId,
+      name: m.tenant.name,
+      role: m.role,
+    }));
   }
 
-  async isUserMemberOfTenant(userId: string, tenantId: string): Promise<boolean> {
+  async isUserMemberOfTenant(
+    userId: string,
+    tenantId: string,
+  ): Promise<boolean> {
     // Use composite PK lookup for fast membership check
     const membership = await this.prisma.userTenant.findUnique({
       where: { userId_tenantId: { userId, tenantId } },
@@ -55,21 +67,24 @@ export class TenantsService {
     // Ensure user is a member of the tenant
     const isMember = await this.isUserMemberOfTenant(userId, tenantId);
     if (!isMember) {
-      throw new ForbiddenException('You must be a member of the tenant to delete it');
+      throw new ForbiddenException(
+        'You must be a member of the tenant to delete it',
+      );
     }
 
     // Verify tenant exists
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
     if (!tenant) {
       throw new NotFoundException('Tenant not found');
     }
 
     // Delete tenant (cascade will delete boards, todos, and UserTenant memberships)
     await this.prisma.tenant.delete({ where: { id: tenantId } });
-    
+
     this.logger.log(`Tenant deleted - tenant=${tenantId} by user=${userId}`);
-    
+
     return { deleted: true, tenantId };
   }
 }
-

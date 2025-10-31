@@ -15,5 +15,3 @@ import { PrismaService } from '../../common/prisma/prisma.service';
   exports: [TenantsService],
 })
 export class TenantsModule {}
-
-

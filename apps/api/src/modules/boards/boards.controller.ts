@@ -4,16 +4,48 @@
  * Why: Enforces tenant isolation at the edge; delegates business rules to BoardsService.
  * Notes: Validates route params via IdParamPipe; cross-checks header/param via TenantGuard.
  */
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, UseGuards, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiParam, ApiTags, ApiCreatedResponse, ApiConsumes, ApiProduces, ApiQuery, ApiBody, ApiNoContentResponse, ApiBadRequestResponse, ApiForbiddenResponse, ApiNotFoundResponse } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+  ApiCreatedResponse,
+  ApiConsumes,
+  ApiProduces,
+  ApiQuery,
+  ApiBody,
+  ApiNoContentResponse,
+  ApiBadRequestResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+} from '@nestjs/swagger';
 import { BoardsService } from './boards.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantGuard } from '../tenants/tenant.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { RequestUser } from '../../common/decorators/current-user.decorator';
 import { ActiveTenant } from '../tenants/tenant-context.decorator';
-import { BoardSummaryDto, CreateBoardDto, UpdateBoardDto, ListBoardsQueryDto, BoardsListResponseDto } from './dto/board.dto';
+import {
+  BoardSummaryDto,
+  CreateBoardDto,
+  UpdateBoardDto,
+  ListBoardsQueryDto,
+  BoardsListResponseDto,
+} from './dto/board.dto';
 import { IdParamPipe } from '../../common/pipes/id-param.pipe';
 
 @ApiTags('boards')
@@ -32,8 +64,17 @@ export class BoardsController {
   @Get()
   @ApiOperation({ summary: 'List boards for tenant' })
   @ApiOkResponse({ type: BoardsListResponseDto })
-  @ApiQuery({ name: 'cursor', required: false, description: 'Cursor (board id) for pagination' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Page size', schema: { default: 20, minimum: 1, type: 'integer' } })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    description: 'Cursor (board id) for pagination',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description: 'Page size',
+    schema: { default: 20, minimum: 1, type: 'integer' },
+  })
   @ApiBadRequestResponse({ description: 'Invalid parameters' })
   @ApiForbiddenResponse({ description: 'Tenant access denied' })
   async list(
@@ -44,7 +85,12 @@ export class BoardsController {
   ) {
     // extra defense: ensure route param matches active tenant
     const tenantId = activeTenantId ?? tenantIdParam;
-    return this.boards.listBoards(user.userId, tenantId, query?.cursor, query?.limit ?? 20);
+    return this.boards.listBoards(
+      user.userId,
+      tenantId,
+      query?.cursor,
+      query?.limit ?? 20,
+    );
   }
 
   /**
@@ -127,5 +173,3 @@ export class BoardsController {
     return;
   }
 }
-
-

@@ -16,5 +16,3 @@ import { RealtimeModule } from '../realtime/realtime.module.js';
   providers: [TodosService, PrismaService, TenantsService],
 })
 export class TodosModule {}
-
-

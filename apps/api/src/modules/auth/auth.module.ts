@@ -34,5 +34,3 @@ import { PrismaService } from '../../common/prisma/prisma.service';
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}
-
-

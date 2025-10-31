@@ -13,5 +13,3 @@ export class TenantSummaryDto {
   @ApiProperty({ example: 'member' })
   role: string;
 }
-
-

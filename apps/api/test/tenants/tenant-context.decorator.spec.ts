@@ -31,5 +31,3 @@ describe.skip('ActiveTenant decorator (skipped: framework-coupled)', () => {
     expect(getValue(req)).toBe('t2');
   });
 });
-
-

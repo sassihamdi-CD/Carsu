@@ -4,8 +4,29 @@
  * Why: Encapsulates multi-tenant membership logic cleanly, keeping boundaries clear.
  * Notes: Ensures all tenant access is restricted to memberships of the logged-in user.
  */
-import { Controller, Get, Post, Delete, UseGuards, Param, Body, ForbiddenException, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags, ApiCreatedResponse, ApiParam, ApiNoContentResponse, ApiForbiddenResponse, ApiNotFoundResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  UseGuards,
+  Param,
+  Body,
+  ForbiddenException,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiCreatedResponse,
+  ApiParam,
+  ApiNoContentResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { RequestUser } from '../../common/decorators/current-user.decorator';
@@ -20,9 +41,12 @@ export class TenantsController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: "List tenant memberships for the current user" })
+  @ApiOperation({ summary: 'List tenant memberships for the current user' })
   @ApiBearerAuth()
-  @ApiOkResponse({ description: 'Array of tenant memberships', type: [TenantSummaryDto] })
+  @ApiOkResponse({
+    description: 'Array of tenant memberships',
+    type: [TenantSummaryDto],
+  })
   /**
    * Returns all tenants the current user belongs to. Useful for selecting active tenant in the client.
    */
@@ -43,7 +67,10 @@ export class TenantsController {
     @CurrentUser() user: RequestUser,
   ) {
     // Ensure the caller is a member of this tenant
-    const isMember = await this.tenantsService.isUserMemberOfTenant(user.userId, tenantId);
+    const isMember = await this.tenantsService.isUserMemberOfTenant(
+      user.userId,
+      tenantId,
+    );
     if (!isMember) throw new ForbiddenException();
     return this.tenantsService.addUserToTenantByEmail(tenantId, body.email);
   }
@@ -69,4 +96,3 @@ export class TenantsController {
     return;
   }
 }
-

@@ -3,12 +3,17 @@
  * Usage: Used by AuthController for signup and login; accessible to other services for current-user checks.
  * Why: Single-responsibility layer for auth; isolates credential and token logic from web/infra concerns.
  * Notes: Handles password hashing, user lookup, and token generation.
- * 
+ *
  * Logging Strategy:
  * - log(): Authentication events (signup success, login success) for security audit trail
  * - Error logging: Prisma unique constraint violations are mapped to ConflictException (no extra logging needed)
  */
-import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
@@ -47,7 +52,9 @@ export class AuthService {
    * Hash a plaintext password using bcrypt with configured salt rounds.
    */
   private async hashPassword(plain: string): Promise<string> {
-    const saltRounds = Number(this.config.get<string>('BCRYPT_SALT_ROUNDS') ?? '10');
+    const saltRounds = Number(
+      this.config.get<string>('BCRYPT_SALT_ROUNDS') ?? '10',
+    );
     return bcrypt.hash(plain, saltRounds);
   }
 
@@ -70,7 +77,9 @@ export class AuthService {
       // Create user, default tenant, and membership in a transaction
       const result = await this.prisma.$transaction(async (tx) => {
         const user = await tx.user.create({ data: { email, passwordHash } });
-        const tenant = await tx.tenant.create({ data: { name: this.buildDefaultTenantName(email) } });
+        const tenant = await tx.tenant.create({
+          data: { name: this.buildDefaultTenantName(email) },
+        });
         await tx.userTenant.create({
           data: { userId: user.id, tenantId: tenant.id, role: 'member' },
         });
@@ -81,8 +90,12 @@ export class AuthService {
       this.logger.log(`signup_success userId=${result.user.id}`);
       return { token, userId: result.user.id };
     } catch (err) {
-      const code = (err as any)?.code;
-      if ((err instanceof Prisma.PrismaClientKnownRequestError && code === 'P2002') || code === 'P2002') {
+      const code = err?.code;
+      if (
+        (err instanceof Prisma.PrismaClientKnownRequestError &&
+          code === 'P2002') ||
+        code === 'P2002'
+      ) {
         // Unique constraint violation (likely email)
         throw new ConflictException('Email already in use');
       }
@@ -123,7 +136,11 @@ export class AuthService {
     });
     return {
       user: { id: user.id, email: user.email },
-      tenants: memberships.map((m) => ({ id: m.tenantId, name: m.tenant.name, role: m.role })),
+      tenants: memberships.map((m) => ({
+        id: m.tenantId,
+        name: m.tenant.name,
+        role: m.role,
+      })),
     };
   }
 }

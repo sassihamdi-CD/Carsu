@@ -5,7 +5,15 @@
  * Notes: Optional properties use `@IsOptional` and `@ApiPropertyOptional` for accurate docs.
  */
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength, IsInt, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  IsInt,
+  Min,
+} from 'class-validator';
 
 export enum TodoStatusDto {
   TODO = 'TODO',
@@ -40,7 +48,10 @@ export class CreateTodoDto {
   title: string;
 
   /** Optional description (≤ 2000 chars) */
-  @ApiPropertyOptional({ maxLength: 2000, example: 'Verify all critical paths before release.' })
+  @ApiPropertyOptional({
+    maxLength: 2000,
+    example: 'Verify all critical paths before release.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -52,7 +63,10 @@ export class CreateTodoDto {
   status: TodoStatusDto = TodoStatusDto.TODO;
 
   /** Optional assignee user id within the same tenant */
-  @ApiPropertyOptional({ description: 'Assignee user id within tenant', example: 'user_123' })
+  @ApiPropertyOptional({
+    description: 'Assignee user id within tenant',
+    example: 'user_123',
+  })
   @IsOptional()
   @IsString()
   assigneeUserId?: string;
@@ -121,5 +135,3 @@ export class TodosListResponseDto {
   @ApiProperty({ type: TodosListMetaDto })
   meta: TodosListMetaDto;
 }
-
-

@@ -13,12 +13,17 @@ describe('TenantsService', () => {
     const module = await Test.createTestingModule({
       providers: [
         TenantsService,
-        { provide: PrismaService, useValue: {
-          userTenant: { findMany: jest.fn().mockResolvedValue([
-            { tenantId: 't1', role: 'member', tenant: { name: 'Acme' } },
-            { tenantId: 't2', role: 'admin', tenant: { name: 'Globex' } },
-          ]) },
-        }},
+        {
+          provide: PrismaService,
+          useValue: {
+            userTenant: {
+              findMany: jest.fn().mockResolvedValue([
+                { tenantId: 't1', role: 'member', tenant: { name: 'Acme' } },
+                { tenantId: 't2', role: 'admin', tenant: { name: 'Globex' } },
+              ]),
+            },
+          },
+        },
       ],
     }).compile();
 
@@ -32,5 +37,3 @@ describe('TenantsService', () => {
     ]);
   });
 });
-
-

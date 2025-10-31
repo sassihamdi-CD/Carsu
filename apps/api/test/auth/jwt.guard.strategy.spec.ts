@@ -27,18 +27,21 @@ describe('JwtAuthGuard and JwtStrategy', () => {
     // Arrange
     const reflector = { getAllAndOverride: () => true } as unknown as Reflector;
     const guard = new JwtAuthGuard(reflector);
-    const ctx = { getHandler: () => ({}), getClass: () => ({}) } as unknown as ExecutionContext;
+    const ctx = {
+      getHandler: () => ({}),
+      getClass: () => ({}),
+    } as unknown as ExecutionContext;
     // Assert
     expect(guard.canActivate(ctx)).toBe(true);
   });
 
   it('JwtAuthGuard.handleRequest throws when no user', () => {
     // Arrange
-    const reflector = { getAllAndOverride: () => false } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: () => false,
+    } as unknown as Reflector;
     const guard = new JwtAuthGuard(reflector);
     // Assert
     expect(() => guard.handleRequest(null, null as any)).toThrow();
   });
 });
-
-

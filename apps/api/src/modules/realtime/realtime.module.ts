@@ -13,5 +13,3 @@ import { RealtimeService } from './realtime.service.js';
   exports: [RealtimeService],
 })
 export class RealtimeModule {}
-
-

@@ -1,7 +1,13 @@
 /**
  * DTO for user signup. Validates email and password.
  */
-import { IsEmail, IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SignupDto {
@@ -21,7 +27,8 @@ export class SignupDto {
   @MinLength(8)
   @MaxLength(64)
   @Matches(/^(?=.*[A-Za-z])(?=.*\d)[\S]+$/, {
-    message: 'password must contain at least one letter, one number, and no spaces',
+    message:
+      'password must contain at least one letter, one number, and no spaces',
   })
   password: string;
 }

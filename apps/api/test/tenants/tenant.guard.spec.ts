@@ -9,7 +9,11 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { TenantGuard } from '../../src/modules/tenants/tenant.guard';
 
 describe('TenantGuard', () => {
-  const makeCtx = (userId?: string, headerTenant?: string, paramTenant?: string) => {
+  const makeCtx = (
+    userId?: string,
+    headerTenant?: string,
+    paramTenant?: string,
+  ) => {
     const req: any = {
       headers: headerTenant ? { 'x-tenant-id': headerTenant } : {},
       user: userId ? { userId } : undefined,
@@ -22,7 +26,9 @@ describe('TenantGuard', () => {
   };
 
   it('allows when user is member and header matches param', async () => {
-    const svc = { isUserMemberOfTenant: jest.fn().mockResolvedValue(true) } as any;
+    const svc = {
+      isUserMemberOfTenant: jest.fn().mockResolvedValue(true),
+    } as any;
     const guard = new TenantGuard(svc);
     const { ctx } = makeCtx('u1', 't1', 't1');
     await expect(guard.canActivate(ctx)).resolves.toBe(true);
@@ -32,22 +38,30 @@ describe('TenantGuard', () => {
     const svc = { isUserMemberOfTenant: jest.fn() } as any;
     const guard = new TenantGuard(svc);
     const { ctx } = makeCtx('u1', undefined, 't1');
-    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('rejects when not a member', async () => {
-    const svc = { isUserMemberOfTenant: jest.fn().mockResolvedValue(false) } as any;
+    const svc = {
+      isUserMemberOfTenant: jest.fn().mockResolvedValue(false),
+    } as any;
     const guard = new TenantGuard(svc);
     const { ctx } = makeCtx('u1', 't1', 't1');
-    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('rejects when header/param mismatch', async () => {
-    const svc = { isUserMemberOfTenant: jest.fn().mockResolvedValue(true) } as any;
+    const svc = {
+      isUserMemberOfTenant: jest.fn().mockResolvedValue(true),
+    } as any;
     const guard = new TenantGuard(svc);
     const { ctx } = makeCtx('u1', 't1', 't2');
-    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 });
-
-

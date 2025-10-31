@@ -6,13 +6,19 @@
  * Notes:
  *  - All queries are tenant-scoped, and board-scoped where applicable (IDOR resistant).
  *  - First-page caching only; cache failures are tolerated to avoid surfacing infra issues.
- * 
+ *
  * Logging Strategy:
  * - log(): Important business events (todo created, updated, deleted) for audit trail
  * - debug(): Realtime event emissions (verbose, filtered in production via LOG_LEVEL)
  * - error(): Critical failures (realtime emission errors, cache failures are silently handled)
  */
-import { Inject, Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
@@ -37,15 +43,25 @@ export class TodosService {
     if (!ok) throw new ForbiddenException('Tenant access denied');
   }
 
-  async listTodos(userId: string, tenantId: string, boardId: string, cursor?: string, limit = 20) {
+  async listTodos(
+    userId: string,
+    tenantId: string,
+    boardId: string,
+    cursor?: string,
+    limit = 20,
+  ) {
     await this.ensureMembership(userId, tenantId);
     // Cache only the first page per (tenant, board) to speed up common views
-    const cacheKey = cursor ? undefined : `tenant:${tenantId}:board:${boardId}:todos:first:${limit}`;
+    const cacheKey = cursor
+      ? undefined
+      : `tenant:${tenantId}:board:${boardId}:todos:first:${limit}`;
     if (cacheKey) {
       try {
         const c = await this.cache.get(cacheKey);
         if (c) return c as any;
-      } catch {}
+      } catch {
+        // Cache read failures are non-critical; proceed with database query
+      }
     }
     // Cursor pagination in stable id order; over-fetch by 1 to compute hasMore
     const take = limit;
@@ -58,11 +74,19 @@ export class TodosService {
     });
     // Trim to page size and compute next cursor
     const data = query.slice(0, take);
-    const nextCursor = query.length > take ? data[data.length - 1]?.id : undefined;
-    const response = { data, meta: { nextCursor, hasMore: Boolean(nextCursor) } };
+    const nextCursor =
+      query.length > take ? data[data.length - 1]?.id : undefined;
+    const response = {
+      data,
+      meta: { nextCursor, hasMore: Boolean(nextCursor) },
+    };
     if (cacheKey) {
       // Short TTL; swallow cache errors (observability will still capture logs/metrics)
-      try { await this.cache.set(cacheKey, response, 60_000 as any); } catch {}
+      try {
+        await this.cache.set(cacheKey, response, 60_000 as any);
+      } catch {
+        // Cache write failures are non-critical; continue without caching
+      }
     }
     return response;
   }
@@ -79,7 +103,10 @@ export class TodosService {
     await this.ensureMembership(userId, tenantId);
     // Ensure board belongs to tenant
     // Ensure target board belongs to tenant to avoid cross-tenant writes
-    const board = await this.prisma.board.findFirst({ where: { id: boardId, tenantId }, select: { id: true } });
+    const board = await this.prisma.board.findFirst({
+      where: { id: boardId, tenantId },
+      select: { id: true },
+    });
     if (!board) throw new NotFoundException('Board not found');
     const todo = await this.prisma.todo.create({
       data: {
@@ -93,12 +120,25 @@ export class TodosService {
       select: { id: true, title: true, status: true, assigneeUserId: true },
     });
     // Invalidate first page cache quietly
-    try { await this.cache.del(`tenant:${tenantId}:board:${boardId}:todos:first:20`); } catch {}
-    this.logger.log(`todo_created tenant=${tenantId} board=${boardId} todo=${todo.id}`);
+    try {
+      await this.cache.del(
+        `tenant:${tenantId}:board:${boardId}:todos:first:20`,
+      );
+    } catch {
+      // Cache invalidation failures are non-critical
+    }
+    this.logger.log(
+      `todo_created tenant=${tenantId} board=${boardId} todo=${todo.id}`,
+    );
     // Include boardId in payload so frontend can filter if needed (though room membership should handle this)
     try {
-      this.realtime.emitToBoard(tenantId, boardId, 'todo.created', { ...todo, boardId });
-      this.logger.debug(`Emitted todo.created event for tenant ${tenantId} board ${boardId}`);
+      this.realtime.emitToBoard(tenantId, boardId, 'todo.created', {
+        ...todo,
+        boardId,
+      });
+      this.logger.debug(
+        `Emitted todo.created event for tenant ${tenantId} board ${boardId}`,
+      );
     } catch (err) {
       this.logger.error(`Failed to emit todo.created event:`, err);
     }
@@ -109,7 +149,13 @@ export class TodosService {
     await this.ensureMembership(userId, tenantId);
     const todo = await this.prisma.todo.findFirst({
       where: { id: todoId, tenantId },
-      select: { id: true, title: true, status: true, assigneeUserId: true, boardId: true },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        assigneeUserId: true,
+        boardId: true,
+      },
     });
     if (!todo) throw new NotFoundException('Todo not found');
     return todo;
@@ -119,22 +165,45 @@ export class TodosService {
     userId: string,
     tenantId: string,
     todoId: string,
-    patch: Partial<{ title: string; description: string; status: TodoStatusDto; assigneeUserId: string | null }>,
+    patch: Partial<{
+      title: string;
+      description: string;
+      status: TodoStatusDto;
+      assigneeUserId: string | null;
+    }>,
   ) {
     await this.ensureMembership(userId, tenantId);
     // Scope fetch by tenant to prevent leaking existence
-    const exists = await this.prisma.todo.findFirst({ where: { id: todoId, tenantId }, select: { id: true, boardId: true } });
+    const exists = await this.prisma.todo.findFirst({
+      where: { id: todoId, tenantId },
+      select: { id: true, boardId: true },
+    });
     if (!exists) throw new NotFoundException('Todo not found');
     // Scope update by tenant; updateMany yields 404-like behavior when no match
-    const updated = await this.prisma.todo.updateMany({ where: { id: todoId, tenantId }, data: patch as any });
+    const updated = await this.prisma.todo.updateMany({
+      where: { id: todoId, tenantId },
+      data: patch as any,
+    });
     if (updated.count === 0) throw new NotFoundException('Todo not found');
     // Invalidate first page cache quietly
-    try { await this.cache.del(`tenant:${tenantId}:board:${exists.boardId}:todos:first:20`); } catch {}
+    try {
+      await this.cache.del(
+        `tenant:${tenantId}:board:${exists.boardId}:todos:first:20`,
+      );
+    } catch {
+      // Cache invalidation failures are non-critical
+    }
     this.logger.log(`todo_updated tenant=${tenantId} todo=${todoId}`);
     // Emit realtime event for todo update (silently handle failures)
     try {
-      this.realtime.emitToBoard(tenantId, exists.boardId, 'todo.updated', { id: todoId, boardId: exists.boardId, ...patch });
-      this.logger.debug(`Emitted todo.updated event for tenant ${tenantId} board ${exists.boardId}`);
+      this.realtime.emitToBoard(tenantId, exists.boardId, 'todo.updated', {
+        id: todoId,
+        boardId: exists.boardId,
+        ...patch,
+      });
+      this.logger.debug(
+        `Emitted todo.updated event for tenant ${tenantId} board ${exists.boardId}`,
+      );
     } catch (err) {
       this.logger.error(`Failed to emit todo.updated event:`, err);
     }
@@ -144,23 +213,35 @@ export class TodosService {
   async deleteTodo(userId: string, tenantId: string, todoId: string) {
     await this.ensureMembership(userId, tenantId);
     // Confirm todo belongs to tenant before deleting
-    const exists = await this.prisma.todo.findFirst({ where: { id: todoId, tenantId }, select: { id: true, boardId: true } });
+    const exists = await this.prisma.todo.findFirst({
+      where: { id: todoId, tenantId },
+      select: { id: true, boardId: true },
+    });
     if (!exists) throw new NotFoundException('Todo not found');
     // Scope delete by tenant; deleteMany gives safe count for 404 mapping
-    const del = await this.prisma.todo.deleteMany({ where: { id: todoId, tenantId } });
+    const del = await this.prisma.todo.deleteMany({
+      where: { id: todoId, tenantId },
+    });
     if (del.count === 0) throw new NotFoundException('Todo not found');
     // Invalidate first page cache quietly
-    try { await this.cache.del(`tenant:${tenantId}:board:${exists.boardId}:todos:first:20`); } catch {}
+    try {
+      await this.cache.del(
+        `tenant:${tenantId}:board:${exists.boardId}:todos:first:20`,
+      );
+    } catch {}
     this.logger.log(`todo_deleted tenant=${tenantId} todo=${todoId}`);
     // Emit realtime event for todo deletion (silently handle failures)
     try {
-      this.realtime.emitToBoard(tenantId, exists.boardId, 'todo.deleted', { id: todoId, boardId: exists.boardId });
-      this.logger.debug(`Emitted todo.deleted event for tenant ${tenantId} board ${exists.boardId}`);
+      this.realtime.emitToBoard(tenantId, exists.boardId, 'todo.deleted', {
+        id: todoId,
+        boardId: exists.boardId,
+      });
+      this.logger.debug(
+        `Emitted todo.deleted event for tenant ${tenantId} board ${exists.boardId}`,
+      );
     } catch (err) {
       this.logger.error(`Failed to emit todo.deleted event:`, err);
     }
     return { deleted: true };
   }
 }
-
-
