@@ -327,6 +327,49 @@ graph TB
    - Room naming convention (`${tenantId}:${boardId}`) prevents cross-tenant data leakage
    - Server-side validation ensures users can only access tenant-scoped resources
 
+### Authentication & Authorization Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant AuthService
+    participant TenantGuard
+    participant TenantService
+    participant Database
+
+    Note over Client: User Login Flow
+    
+    Client->>API: POST /auth/login {email, password}
+    API->>AuthService: login(email, password)
+    AuthService->>Database: Find User by Email
+    Database-->>AuthService: User Data
+    AuthService->>AuthService: Verify Password (bcrypt)
+    AuthService->>AuthService: Generate JWT Token
+    AuthService-->>API: {token,작userId}
+    API-->>Client: JWT Token
+
+    Note over Client: Authenticated Request Flow
+    
+    Client->>API: GET /tenants/:tenantId/boards<br/>Headers: Authorization, x-tenant-id
+    API->>TenantGuard: Check Request
+    TenantGuard->>TenantGuard: Extract JWT from Header
+    TenantGuard->>AuthService: Validate JWT Token
+    AuthService-->>TenantGuard: User ID from Token
+    TenantGuard->>TenantService: isUserMemberOfTenant(userId, tenantId)
+    TenantService->>Database: Check UserTenant Table
+    Database-->>TenantService: Membership Result
+    alt User is Member
+        TenantService-->>TenantGuard: true
+        TenantGuard-->>API: Request Authorized
+        API->>API: Process Request (tenant-scoped)
+        API-->>Client: Success Response
+    else User is NOT Member
+        TenantService-->>TenantGuard: false
+        TenantGuard-->>Client: 403 Forbidden
+    end
+```
+
 ### Example Flow
 
 **Scenario**: Alice and Bob are both members of "Acme Corp" tenant. Both open the "Website Launch" board.
