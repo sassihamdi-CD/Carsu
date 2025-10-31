@@ -263,35 +263,44 @@ sequenceDiagram
 ```mermaid
 graph TB
     subgraph "Socket.IO Rooms"
-        TR[Tenant Room<br/>tenant-123:boards]
-        BR1[Board Room 1<br/>tenant-123:board-456]
-        BR2[Board Room 2<br/>tenant-123:board-789]
+        TR["Tenant Room<br/>tenant-123:boards"]
+        BR1["Board Room 1<br/>tenant-123:board-456"]
+        BR2["Board Room 2<br/>tenant-123:board-789"]
     end
 
     subgraph "Events"
-        BE[Board Events<br/>board.created<br/>board.updated<br/>board.deleted]
-        TE[Todo Events<br/>todo.created<br/>todo.updated<br/>todo.deleted]
+        BE["Board Events<br/>board.created<br/>board.updated<br/>board.deleted"]
+        TE["Todo Events<br/>todo.created<br/>todo.updated<br/>todo.deleted"]
     end
 
     subgraph "Clients"
-        C1[Alice<br/>Member of tenant-123]
-        C2[Bob<br/>Member of tenant-123]
-        C3[Charlie<br/>Member of tenant-456]
+        C1["Alice<br/>Member of tenant-123"]
+        C2["Bob<br/>Member of tenant-123"]
+        C3["Charlie<br/>Member of tenant-456"]
     end
 
-    C1 -->|Auto-join| TR
-    C2 -->|Auto-join| TR
-    C1 -->|Explicit join| BR1
-    C2 -->|Explicit join| BR1
-    C1 -->|Explicit join| BR2
+    C1 -->|"Auto-join"| TR
+    C2 -->|"Auto-join"| TR
+    C1 -->|"Explicit join"| BR1
+    C2 -->|"Explicit join"| BR1
+    C1 -->|"Explicit join"| BR2
 
-    BE -->|Broadcast to| TR
-    TE -->|Broadcast to| BR1
-    TE -->|Broadcast to| BR2
+    BE -->|"Broadcast to"| TR
+    TE -->|"Broadcast to"| BR1
+    TE -->|"Broadcast to"| BR2
 
-    Note1[Alice & Bob receive board events]
-    Note2[Only clients in BR1 receive todo events for board-456]
-    Note3[Charlie cannot join tenant-123 rooms]
+    style TR fill:#e1f5ff
+    style BR1 fill:#fff4e1
+    style BR2 fill:#fff4e1
+    style BE fill:#e8f5e9
+    style TE fill:#fce4ec
+```
+
+**Room Behavior:**
+- **Tenant Room (`tenant-123:boards`)**: Alice & Bob automatically join on connection. They receive all board-level events.
+- **Board Room 1 (`tenant-123:board-456`)**: Only Alice & Bob (explicitly joined) receive todo events for board-456.
+- **Board Room 2 (`tenant-123:board-789`)**: Only Alice (explicitly joined) receives todo events for board-789.
+- **Security**: Charlie cannot join tenant-123 rooms (tenant isolation enforced).
 
 ### Implementation Details
 
