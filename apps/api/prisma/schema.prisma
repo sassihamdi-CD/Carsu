@@ -46,6 +46,7 @@ model Board {
   todos     Todo[]
 
   @@index([tenantId])
+  @@index([tenantId, createdAt])
 }
 
 model Todo {
@@ -65,6 +66,7 @@ model Todo {
 
   @@index([tenantId])
   @@index([tenantId, boardId])
+  @@index([tenantId, boardId, status])
 }
 
 enum TodoStatus {
