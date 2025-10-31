@@ -485,12 +485,12 @@ make setup
 ```
 
 **That's it!** The script will:
-- ✅ Clean up any existing containers
-- ✅ Build and start all services (database, API, frontend)
-- ✅ Wait for database to be healthy
-- ✅ Run Prisma migrations automatically
-- ✅ Verify API and frontend are ready
-- ✅ Display access URLs and useful commands
+-  Clean up any existing containers
+-  Build and start all services (database, API, frontend)
+-  Wait for database to be healthy
+-  Run Prisma migrations automatically
+-  Verify API and frontend are ready
+-  Display access URLs and useful commands
 
 ### Access the Application
 
